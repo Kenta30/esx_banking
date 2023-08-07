@@ -14,7 +14,7 @@ AddEventHandler('onResourceStart', function(resourceName)
     if (GetCurrentResourceName() ~= resourceName) then return end
     if Config.EnablePeds then BANK.CreatePeds() end
     local twoMonthMs = (os.time() - 5259487) * 1000
-    MySQL.Sync.fetchScalar('DELETE FROM banking WHERE time < ? ', {twoMonthMs})
+    MySQL.update('DELETE FROM banking WHERE time < ? ', {twoMonthMs})
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)
@@ -109,8 +109,8 @@ ESX.RegisterServerCallback("esx_banking:getPlayerData", function(source, cb)
     local xPlayer = ESX.GetPlayerFromId(source)
     local identifier = xPlayer.getIdentifier()
     local weekAgo = (os.time() - 604800) * 1000
-    local transactionHistory = MySQL.Sync.fetchAll(
-        'SELECT * FROM banking WHERE identifier = ? AND time > ? ORDER BY time DESC LIMIT 10', {identifier, weekAgo})
+    local transactionHistory = MySQL.query.await(
+        'SELECT * FROM `banking` WHERE `identifier` = ? AND `time` > ? ORDER BY time DESC LIMIT 10', {identifier, weekAgo})
     local playerData = {
         playerName = xPlayer.getName(),
         money = xPlayer.getAccount('money').money,
@@ -124,7 +124,7 @@ end)
 ESX.RegisterServerCallback("esx_banking:checkPincode", function(source, cb, inputPincode)
     local xPlayer = ESX.GetPlayerFromId(source)
     local identifier = xPlayer.getIdentifier()
-    local pincode = MySQL.Sync.fetchScalar('SELECT COUNT(1) AS pincode FROM users WHERE identifier = ? AND pincode = ?',
+    local pincode = MySQL.scalar.await('SELECT COUNT(1) AS pincode FROM `users` WHERE `identifier` = ? AND `pincode` = ?',
         {identifier, inputPincode})
     cb(pincode > 0)
 end)
@@ -214,7 +214,7 @@ BANK = {
         return true
     end,
     Pincode = function(amount, identifier)
-        MySQL.update('UPDATE users SET pincode = ? WHERE identifier = ? ', {amount, identifier})
+        MySQL.prepare('UPDATE `users` SET `pincode` = ? WHERE `identifier` = ? ', {amount, identifier})
     end,
     LogTransaction = function(playerId, label, logType, amount, bankMoney)
         if playerId == nil then
@@ -228,7 +228,7 @@ BANK = {
         local xPlayer = ESX.GetPlayerFromId(playerId)
         local identifier = xPlayer.getIdentifier()
     
-        MySQL.insert('INSERT INTO banking (identifier, label, type, amount, time, balance) VALUES (?, ?, ?, ?, ?, ?)',
+        MySQL.prepare('INSERT INTO `banking` (`identifier`, `label`, `type`, `amount`, `time`, `balance`) VALUES (?, ?, ?, ?, ?, ?)',
             {identifier,label,logType,amount, os.time() * 1000, bankMoney})
     end   
 }
